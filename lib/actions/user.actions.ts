@@ -34,6 +34,20 @@ export async function getUserById(userId: string) {
   }
 }
 
+export async function getUserByClerkId(clerkId: string) {
+  try {
+    await connectToDatabase();
+
+    const user = await User.findOne({ clerkId });
+    
+    if (!user) return null;
+
+    return JSON.parse(JSON.stringify(user));
+  } catch (error) {
+    handleError(error);
+  }
+}
+
 export async function updateUser(clerkId: string, user: UpdateUserParams) {
   try {
     await connectToDatabase()
@@ -44,6 +58,25 @@ export async function updateUser(clerkId: string, user: UpdateUserParams) {
     return JSON.parse(JSON.stringify(updatedUser))
   } catch (error) {
     handleError(error)
+  }
+}
+
+export async function createUserIfNotExists(userData: CreateUserParams) {
+  try {
+    await connectToDatabase();
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ clerkId: userData.clerkId });
+    
+    if (existingUser) {
+      return JSON.parse(JSON.stringify(existingUser));
+    }
+
+    // Create new user if doesn't exist
+    const newUser = await User.create(userData);
+    return JSON.parse(JSON.stringify(newUser));
+  } catch (error) {
+    handleError(error);
   }
 }
 

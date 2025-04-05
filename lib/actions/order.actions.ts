@@ -8,6 +8,7 @@ import { connectToDatabase } from '../database';
 import Order from '../database/models/order.model';
 import Event from '../database/models/event.model';
 import {ObjectId} from 'mongodb';
+import mongoose from 'mongoose'
 import User from '../database/models/user.model';
 
 export const checkoutOrder = async (order: CheckoutOrderParams) => {
@@ -47,11 +48,19 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
 export const createOrder = async (order: CreateOrderParams) => {
   try {
     await connectToDatabase();
+
+    // Check if buyerId exists before converting to ObjectId
+    if (!order.buyerId) {
+      throw new Error("Buyer ID is required");
+    }
+
+    // Convert buyerId to ObjectId
+    const buyerObjectId = new mongoose.Types.ObjectId(order.buyerId);
     
     const newOrder = await Order.create({
       ...order,
       event: order.eventId,
-      buyer: order.buyerId,
+      buyer: buyerObjectId, // Ensure buyer is an ObjectOd
     });
 
     return JSON.parse(JSON.stringify(newOrder));
@@ -119,13 +128,21 @@ export async function getOrdersByEvent({ searchString, eventId }: GetOrdersByEve
 // GET ORDERS BY USER
 export async function getOrdersByUser({ userId, limit = 3, page }: GetOrdersByUserParams) {
   try {
-    await connectToDatabase()
+    await connectToDatabase();
 
-    const skipAmount = (Number(page) - 1) * limit
-    const conditions = { buyer: userId }
+    const skipAmount = (Number(page) - 1) * limit;
 
-    const orders = await Order.distinct('event._id')
-      .find(conditions)
+    // Check if userId exists before converting to ObjectId
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+
+    // Convert userId to ObjectId
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    const conditions = { buyer: userObjectId }; // Use ObjectId for buyer
+
+    const orders = await Order.find(conditions)
       .sort({ createdAt: 'desc' })
       .skip(skipAmount)
       .limit(limit)
@@ -137,12 +154,12 @@ export async function getOrdersByUser({ userId, limit = 3, page }: GetOrdersByUs
           model: User,
           select: '_id firstName lastName',
         },
-      })
+      });
 
-    const ordersCount = await Order.distinct('event._id').countDocuments(conditions)
+    const ordersCount = await Order.countDocuments(conditions);
 
-    return { data: JSON.parse(JSON.stringify(orders)), totalPages: Math.ceil(ordersCount / limit) }
+    return { data: JSON.parse(JSON.stringify(orders)), totalPages: Math.ceil(ordersCount / limit) };
   } catch (error) {
-    handleError(error)
+    handleError(error);
   }
 }
